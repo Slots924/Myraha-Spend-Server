@@ -25,6 +25,11 @@ def with_commission(value, percent):
     return int((Decimal(value) * (1 + Decimal(percent) / 100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def split_even(amount, count, index):
+    base, extra = divmod(int(amount), int(count))
+    return base + (1 if index < extra else 0)
+
+
 def oldest_day(today, settings):
     months = today.year * 12 + today.month - 1 - settings["max_age_months"]
     y, m = divmod(months, 12)
@@ -164,26 +169,35 @@ def collect(db, config, job, meta_factory=Meta, proxy_checker=check_proxy):
 
 
 def prepare_exports(db, settings, force=False):
-    rows = db.rows("SELECT l.*,m.keitaro_campaign_id FROM spend_latest l JOIN keitaro_campaign_mapping m ON m.meta_campaign_id=l.meta_campaign_id")
+    rows = db.rows("""SELECT l.*,m.keitaro_campaign_id FROM spend_latest l
+                      JOIN keitaro_campaign_mapping m ON m.meta_campaign_id=l.meta_campaign_id
+                      ORDER BY l.meta_campaign_id,l.day,m.keitaro_campaign_id""")
+    groups = {}
+    for row in rows:
+        groups.setdefault((row["meta_campaign_id"], row["day"]), []).append(row)
     with db.connect() as c:
-        for row in rows:
+        for group in groups.values():
+            row = group[0]
             today = datetime.now(ZoneInfo(row["timezone"])).date()
             if not oldest_day(today, settings) <= date.fromisoformat(row["day"]) <= today:
                 continue
-            amount = with_commission(row["spend_micros"], settings["commission_percent"])
-            fingerprint = hashlib.sha256(json.dumps([amount, row["currency"], row["timezone"], row["period_start"], row["period_end"]]).encode()).hexdigest()
-            old = c.execute("SELECT * FROM keitaro_cost_exports WHERE meta_campaign_id=? AND keitaro_campaign_id=? AND day=?", (row["meta_campaign_id"], row["keitaro_campaign_id"], row["day"])).fetchone()
-            # Reapply recent days on the hourly schedule: late clicks can change distribution even if spend is unchanged.
-            recent = date.fromisoformat(row["day"]) >= today - timedelta(days=settings["lookback_days"])
-            due = old and old["sent_at"] and datetime.fromisoformat(old["sent_at"]) <= datetime.now(timezone.utc) - timedelta(hours=1)
-            status = "pending" if not old or old["fingerprint"] != fingerprint or (recent and (due or force)) else old["status"]
-            c.execute("""INSERT INTO keitaro_cost_exports(meta_campaign_id,keitaro_campaign_id,day,period_start,period_end,
-                      spend_micros,currency,timezone,fingerprint,status,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                      ON CONFLICT(meta_campaign_id,keitaro_campaign_id,day) DO UPDATE SET period_start=excluded.period_start,
-                      period_end=excluded.period_end,spend_micros=excluded.spend_micros,currency=excluded.currency,
-                      timezone=excluded.timezone,fingerprint=excluded.fingerprint,status=excluded.status,updated_at=excluded.updated_at""",
-                      (row["meta_campaign_id"], row["keitaro_campaign_id"], row["day"], row["period_start"], row["period_end"],
-                       amount, row["currency"], row["timezone"], fingerprint, status, now()))
+            total = with_commission(row["spend_micros"], settings["commission_percent"])
+            n = len(group)
+            for index, row in enumerate(group):
+                amount = split_even(total, n, index)
+                fingerprint = hashlib.sha256(json.dumps([amount, n, row["currency"], row["timezone"], row["period_start"], row["period_end"]]).encode()).hexdigest()
+                old = c.execute("SELECT * FROM keitaro_cost_exports WHERE meta_campaign_id=? AND keitaro_campaign_id=? AND day=?", (row["meta_campaign_id"], row["keitaro_campaign_id"], row["day"])).fetchone()
+                # Reapply recent days on the hourly schedule: late clicks can change distribution even if spend is unchanged.
+                recent = date.fromisoformat(row["day"]) >= today - timedelta(days=settings["lookback_days"])
+                due = old and old["sent_at"] and datetime.fromisoformat(old["sent_at"]) <= datetime.now(timezone.utc) - timedelta(hours=1)
+                status = "pending" if not old or old["fingerprint"] != fingerprint or (recent and (due or force)) else old["status"]
+                c.execute("""INSERT INTO keitaro_cost_exports(meta_campaign_id,keitaro_campaign_id,day,period_start,period_end,
+                          spend_micros,currency,timezone,fingerprint,status,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                          ON CONFLICT(meta_campaign_id,keitaro_campaign_id,day) DO UPDATE SET period_start=excluded.period_start,
+                          period_end=excluded.period_end,spend_micros=excluded.spend_micros,currency=excluded.currency,
+                          timezone=excluded.timezone,fingerprint=excluded.fingerprint,status=excluded.status,updated_at=excluded.updated_at""",
+                          (row["meta_campaign_id"], row["keitaro_campaign_id"], row["day"], row["period_start"], row["period_end"],
+                           amount, row["currency"], row["timezone"], fingerprint, status, now()))
 
 
 def export(db, config, job, keitaro_factory=Keitaro):

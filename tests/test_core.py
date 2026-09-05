@@ -6,7 +6,7 @@ import pytest
 from app.credentials import ingest, candidates
 from app.models import Ingest, ProxyInput
 from app.db import DEFAULTS, now
-from app.spend import micros, with_commission, persist_insights, account_window, oldest_day, prepare_exports, collect, export
+from app.spend import micros, with_commission, split_even, persist_insights, account_window, oldest_day, prepare_exports, collect, export
 from app.integrations import parse_proxy, save_proxy, RemoteError, Meta, request_json, Keitaro
 from app.worker import enqueue, recover, Worker
 
@@ -56,6 +56,8 @@ def test_null_v2_and_out_of_order(db):
 def test_exact_money_and_dates():
     assert micros('10.20')+micros('5.10')==15300000
     assert with_commission(micros('15.30'),'10')==16830000
+    parts=[split_even(11220001,3,i) for i in range(3)]
+    assert parts==[3740001,3740000,3740000] and sum(parts)==11220001
     s={**DEFAULTS,'earliest_date':'2020-01-01'}
     assert oldest_day(date(2026,4,30),s)==date(2026,2,28)
     a={'timezone':'America/Los_Angeles','last_collected_day':'2026-09-02'}
@@ -141,14 +143,15 @@ def test_export_idempotency_failure_restart_and_commission(db,config):
         def close(self):pass
     job={'id':1,'force_export':1}
     status,_=export(db,config,job,FakeKeitaro);assert status=='warning'
-    assert all(r['spend_micros']==11220000 for r in calls)
+    assert all(r['spend_micros']==5610000 for r in calls)
+    assert sum(r['spend_micros'] for r in calls)==11220000
     assert db.one("SELECT count(*) n FROM keitaro_cost_exports WHERE status='failed'")['n']==1
     FakeKeitaro.fail=False;export(db,config,job,FakeKeitaro)
     assert len(db.rows('SELECT * FROM keitaro_cost_exports'))==2
     assert db.one("SELECT count(*) n FROM keitaro_cost_exports WHERE status='sent'")['n']==2
     count=len(calls);export(db,config,{'id':1},FakeKeitaro);assert len(calls)==count
     db.settings_update({'commission_percent':'20'});export(db,config,job,FakeKeitaro)
-    assert calls[-1]['spend_micros']==12240000
+    assert {r['spend_micros'] for r in calls[-2:]}=={6120000} and sum(r['spend_micros'] for r in calls[-2:])==12240000
     db.execute("UPDATE keitaro_cost_exports SET status='sending' WHERE id=1");recover(db)
     assert db.one('SELECT status FROM keitaro_cost_exports WHERE id=1')['status']=='failed'
 
