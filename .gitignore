@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.venv/
+.wheelhouse/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/
+backups/
+*.sqlite*
+*.tmp.json
+*.log
+.DS_Store
