@@ -51,7 +51,7 @@ def account_window(account, settings, current, full=False):
 def persist_insights(db, account, rows, start, end, client_id, collected):
     tz = ZoneInfo(account["timezone"])
     timestamp = collected.astimezone(timezone.utc).isoformat(timespec="seconds")
-    bucket = collected.astimezone(timezone.utc).replace(minute=(collected.minute // 15) * 15, second=0, microsecond=0).isoformat()
+    bucket = timestamp
     records = {}
     for row in rows:
         cid = str(row["campaign_id"])

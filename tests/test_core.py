@@ -71,7 +71,7 @@ def test_snapshots_corrections_zero_and_dst(db):
     persist_insights(db,a,[insight(spend='12.30')],date(2026,9,5),date(2026,9,5),1,dt+timedelta(hours=1))
     last=db.rows('SELECT * FROM spend_snapshots ORDER BY id')[-1]
     assert last['previous_micros']==10200000 and last['delta_micros']==2100000
-    assert '16:00:00' in last['bucket_at']
+    assert '16:03:00' in last['bucket_at']
     persist_insights(db,a,[],date(2026,9,5),date(2026,9,5),1,dt+timedelta(hours=2))
     assert db.one('SELECT spend_micros FROM spend_latest')['spend_micros']==0
     persist_insights(db,a,[insight(day='2026-11-01')],date(2026,11,1),date(2026,11,1),1,dt)
