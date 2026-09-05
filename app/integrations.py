@@ -164,8 +164,8 @@ class Meta:
 class Keitaro:
     def __init__(self, config):
         u = urlsplit(config.keitaro_url)
-        if u.scheme != "https" or not u.hostname or u.username or u.query or u.fragment or not config.keitaro_key:
-            raise RemoteError("Заповніть HTTPS KEITARO_URL та KEITARO_API_KEY у .env")
+        if u.scheme not in ("http", "https") or not u.hostname or u.username or u.query or u.fragment or not config.keitaro_key:
+            raise RemoteError("Заповніть KEITARO_URL та KEITARO_API_KEY у .env")
         self.base = config.keitaro_url.rstrip("/") + "/admin_api/v1"
         self.session = requests.Session()
         self.session.trust_env = False

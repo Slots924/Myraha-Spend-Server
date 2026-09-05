@@ -203,6 +203,15 @@ def test_meta_uses_proxy_and_real_ua_cookie(db,config):
     finally:m.close()
 
 
+def test_keitaro_accepts_http_ip(config):
+    config.keitaro_url='http://45.132.107.144';config.keitaro_key='secret'
+    api=Keitaro(config)
+    try:
+        assert api.base=='http://45.132.107.144/admin_api/v1'
+    finally:
+        api.close()
+
+
 def test_keitaro_full_amount_filter_and_unconfirmed_response(config,monkeypatch):
     config.keitaro_url='https://tracker.example';config.keitaro_key='secret'
     calls=[]

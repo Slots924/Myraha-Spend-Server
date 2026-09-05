@@ -56,7 +56,7 @@ sudo nano /opt/myraha-spend/.env
 
 | Параметр | Що вказати |
 |---|---|
-| `KEITARO_URL` | `https://tracker.example.com`, без `/admin` |
+| `KEITARO_URL` | `https://tracker.example.com` або `http://IP`, без `/admin` |
 | `KEITARO_API_KEY` | Admin API-ключ Keitaro з доступом до потрібних кампаній і звітів |
 | `APP_PASSWORD` | Уже згенеровано. Це пароль для входу в панель |
 | `CLIENT_KEY` | Уже згенеровано. Скопіюйте в розширення |
