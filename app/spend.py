@@ -204,8 +204,8 @@ def export(db, config, job, keitaro_factory=Keitaro):
     settings = db.settings()
     if not settings["keitaro_enabled"]:
         return "success", "Експорт Keitaro вимкнено"
-    if not job.get("force_export") and settings["last_export_at"] and datetime.fromisoformat(settings["last_export_at"]) > datetime.now(timezone.utc) - timedelta(hours=1):
-        return "warning", "Експорт відкладено: між запусками Keitaro потрібно 60 хвилин"
+    if not job.get("force_export") and settings["last_export_at"] and datetime.fromisoformat(settings["last_export_at"]) > datetime.now(timezone.utc) - timedelta(minutes=30):
+        return "warning", "Експорт відкладено: між запусками Keitaro потрібно 30 хвилин"
     api = keitaro_factory(config)
     sent, errors = 0, 0
     try:
