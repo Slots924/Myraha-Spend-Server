@@ -66,7 +66,13 @@ class Worker:
                 for kind, enabled in (("spend-collect", s["facebook_enabled"]), ("spend-export-keitaro", s["keitaro_enabled"])):
                     if enabled:
                         c.execute("INSERT OR IGNORE INTO jobs(kind,created_at) VALUES(?,?)", (kind, now()))
-                s["next_run_at"] = (current + timedelta(hours=s["interval_hours"])).isoformat(timespec="seconds")
+                if s["interval_hours"] == 1:
+                    next_run = current.replace(minute=53, second=0, microsecond=0)
+                    if next_run <= current:
+                        next_run += timedelta(hours=1)
+                else:
+                    next_run = current + timedelta(hours=s["interval_hours"])
+                s["next_run_at"] = next_run.isoformat(timespec="seconds")
                 c.execute("UPDATE spend_settings SET value=? WHERE id=1", (json.dumps(s),))
             prune(self.db)
         with self.db.connect() as c:

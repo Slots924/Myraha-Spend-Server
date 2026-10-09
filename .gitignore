@@ -1,14 +1,31 @@
+
+# Паролі та ключі
 .env
 .env.*
 !.env.example
+
+# Python
 .venv/
-.wheelhouse/
+venv/
 __pycache__/
+*.py[cod]
 .pytest_cache/
-*.pyc
+
+# База та резервні копії
 data/
 backups/
-*.sqlite*
-*.tmp.json
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# Логи
 *.log
+
+# Локальні налаштування
+.idea/
+.vscode/
 .DS_Store
+
+.wheelhouse/
+*.tmp.json
